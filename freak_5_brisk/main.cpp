@@ -29,6 +29,22 @@ vector<int> histogram;
 #define PI			3.14159265358979323846
 #define DEG_TO_RAD	(PI/180.0)
 
+
+// Feature Space에 저장 자료형
+//--------------------------------------------------------------
+struct feature
+{
+	cv::KeyPoint DB_keypoint;
+	cv::Mat	 DB_descriptor;
+
+	cv::Mat	descriptors;
+};
+
+vector<struct feature> featureDB;
+//--------------------------------------------------------------
+
+
+
 Mat crop( Mat src,  CvRect roi)
 {
 	cv::Mat roiImg;
@@ -124,7 +140,7 @@ IplImage *rotateImage(const IplImage *src, int angleDegrees, double scale)
 }
 
 
-int countCorrectMatch(IplImage *src,IplImage *imageRotated, int angleDegrees, double scale, vector<DMatch> match, vector<KeyPoint> DBKeypoint, vector<KeyPoint> liveKeypoint){
+int countCorrectMatch(IplImage *src,IplImage *imageRotated, int angleDegrees, double scale, vector<DMatch> match, vector<KeyPoint> DBKeypoint, vector<KeyPoint> liveKeypoint, Mat liveDescriptor){
 	int correctMatches = 0;
 	//resize
 	int w = src->width * scale;
@@ -142,8 +158,8 @@ int countCorrectMatch(IplImage *src,IplImage *imageRotated, int angleDegrees, do
 	center.y = rotateImage->height / 2.0;
 
 	for(int i = 0; i < match.size(); i++){
-		int i1 = match[i].queryIdx; 
-		int i2 = match[i].trainIdx; 
+		int i1 = match[i].queryIdx;					// query => DB
+		int i2 = match[i].trainIdx;					// train => transformed(live) 
 
 		CvPoint point = cvPoint(DBKeypoint[i1].pt.x* scale + (center.x - (src->width * scale / 2)) , DBKeypoint[i1].pt.y*scale + (center.y - (src->height * scale / 2)));
 		point.x = point.x - center.x;
@@ -161,6 +177,8 @@ int countCorrectMatch(IplImage *src,IplImage *imageRotated, int angleDegrees, do
 			cvCircle(imageRotated,liveKeypoint[i2].pt,3,CV_RGB(0,255,0),2);
 			histogram.at(i1)++;
 			correctMatches++;
+
+			featureDB[i1].descriptors.push_back(liveDescriptor.row(i2));
 		}
 	}
 	/*cvCircle(imageRotated,point,3,CV_RGB(255,0,0));
@@ -255,6 +273,19 @@ void main(void) {
 		keypointsA_freak = keypointsA;	// freak 위한 키포인트
 		descriptorExtractor_freak.compute(imgA, keypointsA_freak, descriptorsA_freak);		
 
+		// DB 영상 좌표 저장
+		//--------------------------------------------------------------
+		for(int i=0; i<keypointsA_brisk.size(); ++i)
+		{
+			struct feature f;
+			f.DB_keypoint = keypointsA_brisk[i];
+			f.DB_descriptor.push_back(descriptorsA_brisk.row(i));
+			
+
+			featureDB.push_back(f);
+		}
+		//--------------------------------------------------------------
+
 		/////////////////// MATCHER ///////////////////
 		//descriptorMatcher = new BruteForceMatcher<HammingSse>(); 	
 #if CV_SSSE3
@@ -323,7 +354,7 @@ void main(void) {
 					gcFilterMatches(matches_brisk, matches_opp_brisk, best_matches_brisk, keypointsA_brisk, keypointsB_brisk);			
 
 					
-					int correct_matches = countCorrectMatch(imgB_ipl,imgB_scaled_rotated, angle, scale, best_matches_brisk, keypointsA_brisk, keypointsB_brisk);
+					int correct_matches = countCorrectMatch(imgB_ipl,imgB_scaled_rotated, angle, scale, best_matches_brisk, keypointsA_brisk, keypointsB_brisk, descriptorsA_brisk);
 
 					std::cout << "IMAGE INDEX " << imgA_idx+1 << "-" << imgB_idx+1 << " " << angle <<" : " 
 						<< "T : "<< keypointsA.size() 
