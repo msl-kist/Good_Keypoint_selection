@@ -4,6 +4,10 @@
 #include <fstream>
 #include <iostream>
 #include <list>
+#include <vector>
+
+using namespace std;
+
 
 #include "stdint.h"
 #include "brisk/brisk.h"
@@ -19,7 +23,7 @@
 #include <opencv2/legacy/legacy.hpp>
 #include "value.h"
 
-
+using namespace cv;
 vector<int> histogram;
 
 #define PI			3.14159265358979323846
@@ -287,7 +291,8 @@ void main(void) {
 
 					Mat imgB_color = Mat(imgB_scaled_rotated);
 
-
+					imshow("transformed", imgB);
+					waitKey(0);
 					sprintf(imgB_filename,"%d-%d-%d",imgA_idx+1, imgB_idx+1, angle);		
 
 					//cvShowImage(imgB_filename, imgB_scaled_rotated);
